@@ -88,6 +88,58 @@ At each layer, packet is composed of two fields:
 
 
 
+---
+# 3.4 Reliable Data Transfer
+reliable channel: no transferred data bits corrupted/lost, delivered in order sent (i.e. TCP)
+reliable data transfer protocol's job
+difficult bc layer below this may be unreliable (i.e. TCP on top of unreliable IP)
+**unidirectional data transfer**= data transfer from sender to receiving (as opposed to bidirectional)
+still, sending and receiving need to transmit packets in both directions
+
+## Perfectly reliable chanel
+### Procedure
+sender accepts data from upper layer, creates packet containing the data, and sends packet into channel
+
+receiver receives packet from underlying channel, removes data from packet, passes data up to the upper layer
+
+### Notes
+- no diff between unit of data and packet here
+- no need for receiver to provide any feedback bc nothing can go wrong
+- no need for receiver to ask sender to slow down
+
+## With bit errors
+**positive/negative acknowledgements**: allow receiver to let sender know if/what has been received correctly and what needs repeating
+--> **Automatic Repeat reQuest protocols**
+- needs error detections mechanism (error bits in checksum field of packet)
+- needs receiver feedback: positive (ACK) and negative (NAK) acknowledgements
+  - 1 bit long: 0 could indicate NAK and 1 could indicate ACK
+- needs retransmission
+
+### Procedure
+- send side waits for data to be passed down from upper layer, then creates a packet containing data to be sent along with checksum packet and sends the packet
+- sender waits for ACK or NAK packet from receiver
+- if ACK received, sender knows most recently transmitted packed has been received and returns to waiting for data
+- if NAK, protocol retransmits last packet and waits again for ACK or NAK
+- receiver replies w either ACK or NAK
+
+### Notes
+- when sender is in wait for ACK or NAK state, it cant get more data from upper layer --> sender wont send new peice of data til receiver has correctly received the current one (**stop and wait protocol**)
+- ACK or NAK could be corrupted
+  - solution: **sequence number**: new field in data packet where sender numbers its data packets
+  - recevier checks this number to determine whether or not the packet is a retransmission
+  - one bit
+  - when out of order packet received, receiver sends ACK for packet OR
+  - when corrupted packet received, receiver ends ACK for last corrrectly received packet (**duplicate ACKs**)
+  - sender knows receiver didn't correctly receive the following packet
+
+## lossy channel with bit errors
+- need to detect packet loss and what to do when it occurs (earlier techniques allow us to address the second)
+- sender waits at least as long as round trip delay between sender and receiver plus processing time
+- possibility of **duplicate data packets** if delay occurs although it might not have been lost
+- **countdown timer** interrupts sender after given amt of time
+- sender needs to be able to start timer each time a apacket is sent, respond to timer interrupt, stop timer
+- **alternating bit protocol** --> packet sequence numbers
+> What is ACK Channel?
 
 
 
