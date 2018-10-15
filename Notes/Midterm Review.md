@@ -83,8 +83,327 @@ At each layer, packet is composed of two fields:
 **distributed dos**: attacker controls multiple sources and has each source blast traffic at the target
 ...
 
-# Application Layer
+# 2.1 Application Layer - Principles of Network Applications
+## Network Application architectures
+network architecture: fixed
+application architecture: desgined by app developer
+**client-server architecture**: always-on host (server) which services requests from many other hosts (clients)
+- clients don't communicate directly ww each other
+- server has fixed, well known IP address
+- used by: Web, FTP, Telnet, email
+- **data center** may be used to house a large number of hosts and create powerful virtual server for handling a lot of requests
 
+**p2p architecture**: direct communication between pairs of intermittently connected hosts (peers
+- minimal/no reliance on dedicated servers in data centers
+- used by file sharing (Bittorrent), internet telephont (skype)
+- pros: 
+  - self-scalability
+    - each peer generates workload by requests, but also add service capacity by distributing files to other peers
+  - cost effective: little server infrastructure/bandwith
+- future challenges:
+  - ISP friendly: most ISPs dimensioned for more downstream than upstream traffic
+  - security: due to open nature/highly distributed, hard to be secure
+  - incentives: convincing users to volunteer bandwith, storage, computation resources
+  
+**hybrid architecture**: combines both elements
+- used by: instant messaging apps
+- servers track ip address of users, messages sent directly between user hosts
+
+
+## processes communicating
+**process**: program running within an end system
+
+communcate by sending **messages** across network
+
+client: process that initiates communication
+
+server: waits to be contacted
+
+**socket**: (aka API) what messages are sent into and received from, sw interface between proccess (application layer) and transport layer
+
+### addressing processes
+to identify receiving process we need:
+1. address of host (IP address)
+2. port number: the process running in the host
+  a. Web servers use port 80
+  b. mail server process uses port 25
+  
+ ## transport services available to applications
+ ### reliable data transfer
+ aka guaranteed data delivery service
+ 
+ **loss tolerant apps**: multimedia apps where it results in small glitch
+ 
+ **throughput**: the rate at which the sending process can deliver bits to the receiving process
+ **bandwidth sensitive apps**: have throughput applications (i.e. multimedia)
+ **elastic apps**: make us of as much throughput as available (i.e. email, file transfer, web transfer)
+ 
+ **timing, security**
+ 
+ ## Application-layer protocols
+ defines types of messages exchanged and syntax
+ - i.e. HTTP for the Web
+ 
+ # 2.2 HTTP
+ ## Overview
+ HTTP: Web's app-layer protocol
+ - implemented in client (browser) and server program
+ - web page: consists of objects + base HTML file
+ - object: file (i.e. html, jpeg, etc) addressable by single URL
+ - uses TCP, client-server application architecture, persistent (defualt) but can be configured to use nonpersistent
+ - **stateless protocol**: no stored state information about client 
+ - pull protocol
+ - encapsulation
+ 
+ 
+ URL components:
+ <protocol>://<host>:<port>/<path>?<query>
+ 
+ Process:
+ - initiates TCP connection w server
+ - browser and server processes access TCP thru sockets
+ - client sends HTTP request into socket and receives HTTP response from socket, vice versa for server
+
+ 
+**Non and Persistent connections**
+**non-persistent**: each request/response pair sent over separate TCP connection, each connection closed after server sends object
+
+cons:
+- new connection must be established and maintained for each object requested
+- each object suffers delivery delaay of two RTTS (one to establish TCP connection and one to request/receive object)
+
+**persistent**: all request/response pairs sent over same TCP connection, TCP connection left open after server sends response
+
+ 
+ ## HTTP w/ Non-persistent
+ 1. HTTP client initiates TCP connection to <servername> on <port number (80)> through sockets
+ 2. HTTP client sends HTTP request message to server via socket
+ 3. HTTP server receives request via socket, retrieves some object from storage, encapsulates object in HTTP response, and sends response via socket
+ 4. HTTP server tells TCP to close TCP connection
+ 5. HTTP client receives response, TCP connection terminates
+ 6. HTTP client extracts file from response and finds references to each object, repeating the first 4 steps for each object
+  
+**round-trip time RTT**: time for small packet to travel from client to server and back to client
+- includes packet propagation delays
+- packet queing delays
+- packet processing delays
+
+**three-way handshake**
+1. the client sends a small TCP segment to the server
+2. the server acknowledges and responds with a small TCP segment
+3. the client acknowledges back to the server
+
+- after third handshakeand request message arrives at server, server sends HTML file into TCP connection. this takes up another RTT
+- first two parts take one RTT for non-persistent, so total response time is 2 RTTs + transmission time at server of HTML file
+
+## HTTP w/ Persistent
+- requests made w same connection, made back to back w/o waiting for pending requests (pielining)
+- connection closed when not used for some set timeout interval
+- objects are sent back to back when requests are made back to back
+
+## HTTP message format
+
+### HTTP Request Message
+```
+GET /somedir/page.html HTTP/1.1 
+Host: www.someschool.edu
+Connection: close 
+User-agent: Mozilla/5.0 
+Accept-language: fr
+```
+aka
+```
+<request line> made up of:
+  <method>: <url> <HTTP version>
+  <method> can be GET (browser requests object), POST, HEAD, PUT, DELETE
+<header lines> made up of:
+  <Host:> host on which object resides
+  <Connection: close> browser telling server to close after sending requested object (non-presistent)
+  <User-agent:> browser type making request
+  <Accept-language:> language
+<entity body>
+```
+with GET method, entity body is empty
+with POST (used in forms), body includes input from form fields
+with HEAD: server responds with an HTTP message but leaves out requested object (debugging)
+with PUT: allows user to upload object to specific path on web server
+with DELETE: allows for deletion of object on web server
+
+### HTTP Response 
+```
+HTTP/1.1 200 OK
+Connection: close
+Date: Time and date when HTTP response was created/sent by server
+Server: Apache/2.2.3 (CentOS) 
+Last-Modified: ..
+Conent-Length: <number of bytes in object being sent>
+Content-Type: 
+
+(data...)
+```
+aka
+```
+<status line> containing:
+  <protocol version>, <status code>, <status message>
+<6 header lines>
+<entitity body> requested object
+```
+**status codes**:
+- 200 OK: request succeeded and info returned in response
+- 301 Moved Permanently: requested object permanently moved, new url specified in Location: header of response
+- 400 Bad request: request couldnt be understood by server
+- 404 not found: requested doc doesn't exist on this server
+- 505 HTTP version not supported: requested http protocol not supported by this server
+
+## Cookies
+allow sites to keep track of users
+
+components:
+1. cookie header line in http response
+2. cookie header line in http request
+3. cookie file kept on user's end system and managed by user's browser
+4. back-end db at web site
+
+process:
+- request comes into server
+- server creates unique id number and enters it into db
+- server responds to browser including the set-cookie header in the response, containing the id number
+- browser receives response, sees header, appends line to cookie file including hostname of server and the id number passed
+- each time browser requests a page, it consults cookie file, extracts the id for the site, and puts a <Cookie:> header line in the http request with the id number
+
+## Web cache aka proxy server
+- satisfies http requests on behalf of origin web server
+- has its own disk storage and keeps copies of recently requested objects
+- both server and client at same time
+- pros: reduces resposne time for requests, reduces traffic on instutions access link and therefore reduces traffic in internet as whole
+
+> do some calculations here
+
+process:
+1. browser establishes tcp connection to web cache and sends http request for object to web cache
+2. web cache checks to see if it has copy of object stored locally. if so, returns object in http response
+3. if not, web cache opens tcp connection to origin server and sends http request for object into the cache-to-server tcp connection. after receiveing request, server sends object in http response to web cache
+4. web cache receives object, stores copy in its locall storage and sends copy in http response to client browser in browser to web cache tcp connnection
+
+## conditional GET
+- problem: copy of object in cache may be stale
+- solution: conditional GET which includes an if-modified-since header line
+
+# Email
+3 components:
+- user agents: allow users to read/reply/ etc messages
+- mail servers
+- simple mail transfer protocol SMTP 
+  - client side (sender) and server (recipient), both sides run on ever mail server
+  - requires data to be encoded to ASCII and then being decoded (unlike http)
+
+- each recipient has mailbox and a mail server
+- if not delivered, goes into a message queue in the sender's mail server
+- uses TCP, persistent connections
+- no itnermediate mail servers
+- push protocol
+- no encapsulation
+- client-server architecture
+
+process:
+1. user invokes user agent and provides senders email address and message 
+2. user agent sends message to senders mail server where its placed in message queue
+3. client side of senders smtp sees message in message queue and opens TCP connection to smtp server running on receiver's side
+4. after some smtp handshaking, smtp client sends message into tcp conenction
+5. server side of smtp receives message and receiver's mail server places message in mailbox
+6. receiver invokes user agent to read message
+
+commands on client side:
+HELO, MAIL FROM, RCPT TO, DATA, QUIT
+
+## Mail format
+<header>: From: To: Subject: (part of the mail message itself)
+  
+## Mail protocols:
+POP3
+
+IMAP
+
+HTTP
+
+# DNS
+translates hostnames to IP addresses
+1. distributed db implemented in hierarchy of dns servers
+2. app layer protocol allowing hosts to query the distributed db
+
+- uses UDP, port 53
+- emplyed by other applayer protocols
+- adds additional delay but ip addr often cached in nearby dns server
+- no single dns server has all of mappings for all hosts
+
+services:
+1. host aliasing: dns obtains canonical hostname for supplied alias hostname as well as ip addr of the host
+2. mail server aliasing: dns can obtain canonical hostname for supplied alias hostname as well as ip addr of the host
+3. load distribution: for sets of ip addresses mapped to one canonical host name, dns rotates the ip address provided to distribute traffic among replicated servers
+
+process for http using dns:
+1. user machine runs on client side of dns app
+2. browser extracts hostname from url and passes hostname to client side of dns app
+3. dns client sends query containing hostname to dns server
+4. dns client eventually receives a reply, including ip address for host name
+5. browser receives ip address and initiates tcp connection to http server process at port 80 at that ip address
+
+3 classes of dns servers:
+1. root dns servers
+2. top level domain dns servers: responsible for top level domains like com, org, net, edu
+3. authoritative: houses organizations dns records tht map the names of hosts to ip addr
+
+to get ip addr, client contacts root, root provides ip addresses for tld, client contacts one of tld, this returns the ip of authoritative, client contacts authoritative, which returns the ip addr for the hostname
+
+other type: local dns server: each isp has one
+- when host makes a dns query, query sent to local dns server, which forwards the query into the dns server hierarchy like a proxy
+
+**recursive query**: query from requesting host to local dns server, remaining are **iterative**
+
+dns caching:
+- in query chain, when dns server receives dns reply, it can cache mapping to local memory
+- cached info is discareded after roughly two days
+- local dns can cache ip addr of tld, allowing bypass of root dns servers
+
+## dns records and messages
+resource records RR contains:
+1. Name
+2. Value
+3. Type
+  a. if = A, Name=hostname, Value=IPaddr, provides standard hostname to ip addr mapping
+  b. if = NS, Name=domain, Value=hostname of authoritative dns server tht knows how to obtain ip addr for hosts in domain, used to route dns queries further
+  c. if = CNAME, Value=canonical hostname for alias hostname Name, provides querying hosts conanonical name for host name
+  d. if = MX, Value = canonical name of mail server tht has alias hostname Name, allows hostnames of mail servers to have simple aliases
+4. TTL : time to live (when it should be removed from cache)
+
+- if a dns server is authoritative for a particular hostname, then it will contain a type a record for the host name
+- if not authoritative for hostname, it will contain a type ns record for thte domain tht incldudes the hostname and a type a record tht provides the ip of the dns server in the value field of the ns record
+
+## dns message format
+1. header section
+2. question section
+3. answer section
+4. authority section: records of other authoritative servers
+5. addtional section
+
+registrar: verifies uniqueness of domain name and enters it into DNS database
+enters type NS and type A records into TLD servers
+
+# P2P
+file distribution,distributed hash table
+
+distribution time: time to get copy of file to all N peers
+ 
+ # UDP
+ - minimal services
+ - connectionless: no handshaking before processes communicate
+ - unreliable data transfer: no guarantee message will reach receiving process, may be out of order
+ - no congestion-control: sender can pump data into network layer at any rate
+ - used by internet telephony to circumvent tcp's congestion control
+ 
+
+
+  
 
 
 
@@ -196,6 +515,8 @@ GBN sender responds to 3 events:
 - TCP only runs in the end systems and not in the intermediate network elements (which dont maintain TCP connection sate)
 - full-duplex service: if TCP connection between A on one host and B on another, application-layer data flows from A to B at the same time it flows from B to A
 - point-to-point: between single sender and receiver
+- offers congestion control mechanism: service for general welfare of the internet which limits tcp connections to their fair share of network bandwith and throttles sending process when network is congested
+- reliable data transfer: no missing or out of order or duplicate bytes
 
 ## making tcp connection
 - client process: initiates connection
@@ -205,8 +526,15 @@ GBN sender responds to 3 events:
 2. client TCP estalishes a TCP connection w/ server TCP, server responds w/ second special TCP segment
 3. client responds with third special TCP segment
 
-first two segments carry no payload aka application-layer data, third carries payload
 **three-way handshake**
+1. the client sends a small TCP segment to the server
+2. the server acknowledges and responds with a small TCP segment
+3. the client acknowledges back to the server
+
+- first two segments carry no payload aka application-layer data, third carries payload
+- first two pars take one RTT for non-persistent, total response time is 2 RTTs + transmission time at server of HTML file
+
+
 
 ## sending data over tcp from client to server
 1. client passes data thru socket, to client TCP
@@ -295,6 +623,7 @@ ack rcvd:
 
 # 3.5 flow control
 
+> mail protocols
 > Study conversions by gigabytes to bits, microseconds, milliseconds
 > need calculations for utlization of link, throughput
 > study segment structures, possible inputs (TCP)
